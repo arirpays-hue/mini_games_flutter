@@ -1,0 +1,439 @@
+
+name: Build Mini Games APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Flutter project
+        run: flutter create --platforms=android --org com.arirpayshue app
+
+      - name: Add game screen
+        run: |
+          cat > app/lib/main.dart <<'DART'
+          import 'package:flutter/material.dart';
+
+          void main() => runApp(const GamesApp());
+
+          class GamesApp extends StatelessWidget {
+            const GamesApp({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'אוסף המשחקים',
+                theme: ThemeData(
+                  brightness: Brightness.dark,
+                  colorSchemeSeed: Colors.deepPurple,
+                  useMaterial3: true,
+                ),
+                home: const HomeScreen(),
+              );
+            }
+          }
+
+          class HomeScreen extends StatelessWidget {
+            const HomeScreen({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('🎮 אוסף המשחקים')),
+                body: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 20),
+                      const Text(
+                        'איזה משחק בא לך?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GameButton(
+                        title: '⭕ איקס עיגול',
+                        subtitle: 'משחק לשני שחקנים',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TicTacToeScreen(),
+                          ),
+                        ),
+                      ),
+                      GameButton(
+                        title: '🧠 טריוויה',
+                        subtitle: 'בדוק את הידע שלך',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TriviaScreen(),
+                          ),
+                        ),
+                      ),
+                      GameButton(
+                        title: '✨ משחק זיכרון',
+                        subtitle: 'מצא זוגות תואמים',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MemoryScreen(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+          }
+
+          class GameButton extends StatelessWidget {
+            final String title;
+            final String subtitle;
+            final VoidCallback onTap;
+
+            const GameButton({
+              super.key,
+              required this.title,
+              required this.subtitle,
+              required this.onTap,
+            });
+
+            @override
+            Widget build(BuildContext context) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 14),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  title: Text(
+                    title,
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  subtitle: Text(subtitle),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: onTap,
+                ),
+              );
+            }
+          }
+
+          class TicTacToeScreen extends StatefulWidget {
+            const TicTacToeScreen({super.key});
+
+            @override
+            State<TicTacToeScreen> createState() => _TicTacToeScreenState();
+          }
+
+          class _TicTacToeScreenState extends State<TicTacToeScreen> {
+            List<String> cells = List.filled(9, '');
+            String turn = 'X';
+            String message = 'תור X';
+            bool finished = false;
+
+            void play(int i) {
+              if (cells[i].isNotEmpty || finished) return;
+              setState(() {
+                cells[i] = turn;
+                String? winner;
+                const lines = [
+                  [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                  [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                  [0, 4, 8], [2, 4, 6],
+                ];
+                for (final line in lines) {
+                  if (cells[line[0]].isNotEmpty &&
+                      cells[line[0]] == cells[line[1]] &&
+                      cells[line[1]] == cells[line[2]]) {
+                    winner = cells[line[0]];
+                  }
+                }
+                if (winner != null) {
+                  message = 'השחקן $winner ניצח!';
+                  finished = true;
+                } else if (!cells.contains('')) {
+                  message = 'תיקו!';
+                  finished = true;
+                } else {
+                  turn = turn == 'X' ? 'O' : 'X';
+                  message = 'תור $turn';
+                }
+              });
+            }
+
+            void reset() {
+              setState(() {
+                cells = List.filled(9, '');
+                turn = 'X';
+                message = 'תור X';
+                finished = false;
+              });
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('איקס עיגול')),
+                body: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(message, style: const TextStyle(fontSize: 26)),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        itemCount: 9,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemBuilder: (context, i) => FilledButton(
+                          onPressed: () => play(i),
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            cells[i],
+                            style: const TextStyle(fontSize: 40),
+                          ),
+                        ),
+                      ),
+                    ),
+                    FilledButton(
+                      onPressed: reset,
+                      child: const Text('משחק חדש'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
+          class TriviaScreen extends StatefulWidget {
+            const TriviaScreen({super.key});
+
+            @override
+            State<TriviaScreen> createState() => _TriviaScreenState();
+          }
+
+          class _TriviaScreenState extends State<TriviaScreen> {
+            int index = 0;
+            int score = 0;
+            bool answered = false;
+
+            final questions = const [
+              ['כמה זה 7 כפול 8?', '54', '56', '64', 1],
+              ['מהו כוכב הלכת האדום?', 'נוגה', 'צדק', 'מאדים', 2],
+              ['כמה ימים יש בשבוע?', '5', '7', '10', 1],
+              ['מה בירת ישראל?', 'ירושלים', 'חיפה', 'אילת', 0],
+              ['איזו חיה נובחת?', 'חתול', 'כלב', 'דג', 1],
+            ];
+
+            @override
+            Widget build(BuildContext context) {
+              final done = index >= questions.length;
+              return Scaffold(
+                appBar: AppBar(title: const Text('טריוויה')),
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: done
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('סיימת!', style: TextStyle(fontSize: 30)),
+                              Text('ניקוד: $score מתוך ${questions.length}'),
+                              FilledButton(
+                                onPressed: () => setState(() {
+                                  index = 0;
+                                  score = 0;
+                                  answered = false;
+                                }),
+                                child: const Text('לשחק שוב'),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'שאלה ${index + 1} מתוך ${questions.length}',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                questions[index][0] as String,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 24),
+                              ),
+                              const SizedBox(height: 20),
+                              for (int i = 1; i <= 3; i++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: FilledButton.tonal(
+                                    onPressed: answered
+                                        ? null
+                                        : () => setState(() {
+                                              if (i - 1 ==
+                                                  questions[index][4] as int) {
+                                                score++;
+                                              }
+                                              answered = true;
+                                            }),
+                                    child: Text(
+                                      questions[index][i] as String,
+                                    ),
+                                  ),
+                                ),
+                              if (answered)
+                                FilledButton(
+                                  onPressed: () => setState(() {
+                                    index++;
+                                    answered = false;
+                                  }),
+                                  child: const Text('לשאלה הבאה'),
+                                ),
+                            ],
+                          ),
+                  ),
+                ),
+              );
+            }
+          }
+
+          class MemoryScreen extends StatefulWidget {
+            const MemoryScreen({super.key});
+
+            @override
+            State<MemoryScreen> createState() => _MemoryScreenState();
+          }
+
+          class _MemoryScreenState extends State<MemoryScreen> {
+            final symbols = const ['🐱', '🐶', '🍎', '🚀', '⚽', '🌈'];
+            late List<String> cards;
+            final Set<int> openCards = {};
+            final Set<int> matched = {};
+            int moves = 0;
+
+            @override
+            void initState() {
+              super.initState();
+              reset();
+            }
+
+            void reset() {
+              cards = [...symbols, ...symbols]..shuffle();
+              openCards.clear();
+              matched.clear();
+              moves = 0;
+            }
+
+            void tap(int i) {
+              if (openCards.length == 2 ||
+                  openCards.contains(i) ||
+                  matched.contains(i)) return;
+              setState(() {
+                openCards.add(i);
+                if (openCards.length == 2) {
+                  moves++;
+                  final pair = openCards.toList();
+                  if (cards[pair[0]] == cards[pair[1]]) {
+                    matched.addAll(pair);
+                    openCards.clear();
+                  } else {
+                    Future.delayed(const Duration(milliseconds: 800), () {
+                      if (mounted) setState(() => openCards.clear());
+                    });
+                  }
+                }
+              });
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('משחק זיכרון')),
+                body: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Text(
+                      matched.length == cards.length
+                          ? 'כל הכבוד! סיימת ב-$moves מהלכים'
+                          : 'מהלכים: $moves',
+                      style: const TextStyle(fontSize: 20),
+                    ),
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: cards.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemBuilder: (context, i) {
+                          final visible =
+                              openCards.contains(i) || matched.contains(i);
+                          return FilledButton(
+                            onPressed: () => tap(i),
+                            child: Text(
+                              visible ? cards[i] : '?',
+                              style: const TextStyle(fontSize: 30),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: FilledButton(
+                        onPressed: () => setState(reset),
+                        child: const Text('משחק חדש'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+          DART
+
+      - name: Build release APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-games-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          
